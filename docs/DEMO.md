@@ -112,4 +112,4 @@ flowchart LR
 - 中文工作台已在真实浏览器完成一次端到端点击；`demo-api.ps1` 可重复核对 HTTP 结果。浏览器演示使用本机 H2，另有 MySQL + Redis 的 API 脚本验收；不能把前者写成 MySQL 浏览器验收。
 - 上游通用的答卷查询、单题作答等接口未做完整逐接口权限审计；本轮保障的是上述开考与批量/异步交卷入口，不能据此宣称整站权限已经完善。
 
-上游来源与许可见 [UPSTREAM.md](../UPSTREAM.md)；原项目功能说明见 [上游 README](UPSTREAM_README.md)。
+上游来源、许可与改进范围见 [UPSTREAM.md](../UPSTREAM.md)。

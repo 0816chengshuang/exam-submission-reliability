@@ -1,14 +1,7 @@
-# Upstream Baseline
+# 来源与改进范围
 
-- Source: https://github.com/wells2333/sg-exam
-- Baseline commit: `4a7215ace7f56555bc683e4a4c0188f86986fd9f`
-- License: Apache-2.0; retain the original LICENSE and attribution.
-- Local branch: `codex/baseline`
-- Upstream remote: fetch only; push URL is disabled.
-- The portfolio changes are committed separately from the upstream baseline and
-  published only to the owner's personal repository. The upstream remote is
-  never a push target.
+本仓库以 [sg-exam](https://github.com/wells2333/sg-exam) 的提交 `4a7215ace7f56555bc683e4a4c0188f86986fd9f` 为基础，保留原项目 Git 历史及 Apache-2.0 [许可证](LICENSE)。原项目提供在线考试平台、基础业务模块和题库结构。
 
-This is an upstream-based learning project. Original capabilities and local
-changes must be reported separately. Local configuration, credentials,
-database files and build output must not be committed.
+本仓库的增量聚焦交卷可靠性：答卷归属与输入校验、数据库条件更新抢占交卷权、批量评分事务、提交后异步评分与 Redis 排名发布、过期待评分恢复，以及合成双账户演示、回归测试和本地运行脚本。对应场景、代码位置和验证范围见 [设计与演示](docs/DEMO.md)。
+
+个人仓库用于展示这些改进；`upstream` 远端仅供读取，禁止推送。运行时配置、口令、数据库文件和构建产物不进入 Git。

@@ -88,4 +88,4 @@ Remove-Item Env:SG_TEST_MYSQL_URL,Env:SG_TEST_MYSQL_USER,Env:SG_TEST_MYSQL_PASSW
 
 异步恢复依赖本地定时扫描，不是持久化队列；进程崩溃后会有最多一个扫描周期加五分钟的等待，且没有做双实例部署验收。Redis 发布失败尚无自动重建；匿名问卷未实现一次性身份令牌。详见演示页的边界说明。
 
-本项目基于 [sg-exam](https://github.com/wells2333/sg-exam) 改进，保留上游 Git 历史及 Apache-2.0 许可证。考试平台、Spring Boot/Vue 模块与原有题库等属于上游；上述交卷一致性改动和验证为本仓库增量。[上游原 README](docs/UPSTREAM_README.md)。
+本项目基于 [sg-exam](https://github.com/wells2333/sg-exam) 改进，保留上游 Git 历史及 Apache-2.0 许可证。考试平台、Spring Boot/Vue 模块与原有题库等属于上游；上述交卷一致性改动和验证为本仓库增量。[来源与改进范围](UPSTREAM.md)。
