@@ -368,6 +368,7 @@ CREATE TABLE exam_examination_record (
   tenant_code varchar(16) NOT NULL,
   PRIMARY KEY (id)
 );
+CREATE INDEX idx_submit_recovery ON exam_examination_record (submit_status, is_deleted, update_time, id);
 
 -- ----------------------------
 -- Records of exam_examination_record

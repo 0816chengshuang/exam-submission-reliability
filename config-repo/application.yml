@@ -51,6 +51,7 @@ ignore:
     - /**/*.js
     - /**/error
     - /**/favicon.ico
+    - /submission-demo
     - /**/*swagger*/**
     - /**/*api-docs*/**
     - /**/v3/**

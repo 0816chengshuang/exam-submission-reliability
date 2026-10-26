@@ -28,6 +28,20 @@ import java.util.Map;
 @Repository
 public interface ExamRecordMapper extends CrudMapper<ExaminationRecord> {
 
+	int claimSubmission(@Param("recordId") Long recordId, @Param("userId") Long userId,
+			@Param("tenantCode") String tenantCode, @Param("submitStatus") Integer submitStatus);
+
+	int claimAnonymousSubmission(@Param("recordId") Long recordId, @Param("examinationId") Long examinationId,
+			@Param("tenantCode") String tenantCode, @Param("submitStatus") Integer submitStatus);
+
+	int claimGrading(@Param("recordId") Long recordId, @Param("tenantCode") String tenantCode,
+			@Param("submitStatus") Integer submitStatus);
+
+	List<ExaminationRecord> findStaleCalculations(@Param("cutoff") Date cutoff);
+
+	int reserveStaleCalculation(@Param("recordId") Long recordId, @Param("tenantCode") String tenantCode,
+			@Param("cutoff") Date cutoff);
+
 	List<ExaminationRecord> getByUserIdAndExaminationId(ExaminationRecord examRecord);
 
 	List<ExaminationRecord> getByUserId(@Param("userId") Long userId, @Param("params") Map<String, Object> params);

@@ -185,7 +185,7 @@ public class AnswerController extends BaseController {
 			return R.success(Boolean.FALSE);
 		}
 
-		return R.success(actionService.submitAll(answers));
+		return R.success(actionService.submitAllAnonymous(examinationId, answers));
 	}
 
 	@PutMapping("mark")

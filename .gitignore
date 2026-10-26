@@ -46,3 +46,10 @@ frontend/sg-exam-next-app/dist/
 frontend/sg-exam-next-app/yarn.lock
 config-repo/env/sg-user-service.env
 *.jks
+
+# Local credentials, logs and generated state
+.env
+.env.*
+!.env.example
+/.local/
+/.run/

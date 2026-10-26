@@ -2,10 +2,6 @@ plugins {
     id "io.spring.dependency-management" version "1.0.11.RELEASE"
 }
 
-tasks.withType(JavaCompile) {
-    options.encoding = "UTF-8"
-}
-
 subprojects {
 	group "com.github.tangyi"
     version = '0.0.15'
@@ -13,6 +9,10 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'java-library'
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
 
     repositories {
         mavenLocal()

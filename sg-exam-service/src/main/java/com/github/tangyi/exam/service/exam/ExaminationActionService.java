@@ -60,6 +60,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -87,10 +90,12 @@ public class ExaminationActionService implements IExaminationActionService {
 	@Override
 	public StartExamDto start(ExaminationRecord examRecord) {
 		SgPreconditions.checkNull(examRecord.getExaminationId(), "The examination id cannot be null.");
-		SgPreconditions.checkNull(examRecord.getUserId(), "The user id cannot be null.");
+		Long userId = SysUtil.getUserId();
+		SgPreconditions.checkNull(userId, "An authenticated user is required to start an examination.");
+		examRecord.setUserId(userId);
 		// 看上一次考试是否提交
 		HashMap<String, Object> condition = Maps.newHashMapWithExpectedSize(3);
-		condition.put("userId", examRecord.getUserId());
+		condition.put("userId", userId);
 		condition.put("examinationId", examRecord.getExaminationId());
 		condition.put("tenantCode", SysUtil.getTenantCode());
 		PageInfo<ExaminationRecord> page = examRecordService.findPage(condition, 1, 10);
@@ -109,7 +114,7 @@ public class ExaminationActionService implements IExaminationActionService {
 			}
 		}
 		// 没有答题记录，或者最近一次答题是提交状态
-		return this.start(examRecord.getUserId(), SysUtil.getUser(), examRecord.getExaminationId(),
+		return this.start(userId, SysUtil.getUser(), examRecord.getExaminationId(),
 				SysUtil.getTenantCode());
 	}
 
@@ -189,7 +194,7 @@ public class ExaminationActionService implements IExaminationActionService {
 			return Boolean.FALSE;
 		}
 
-		ExaminationRecord record = this.examRecordService.get(recordId);
+		ExaminationRecord record = this.examRecordService.getUncached(recordId);
 		Long[] ids = answerList.stream().map(Answer::getSubjectId).toArray(Long[]::new);
 		Map<Integer, List<Answer>> distinct = this.distinctAnswer(ids, answerList);
 		distinct.remove(SubjectType.MATERIAL.getValue());// 去掉材料题
@@ -212,7 +217,9 @@ public class ExaminationActionService implements IExaminationActionService {
 		record.setEndTime(new Date());
 		this.examRecordService.update(record);
 		// 更新排名数据
-		this.rankInfoService.updateRank(record);
+		if (submitStatus == SubmitStatusEnum.CALCULATED) {
+			this.rankInfoService.updateRankAfterCommit(record);
+		}
 		return Boolean.TRUE;
 	}
 
@@ -222,33 +229,84 @@ public class ExaminationActionService implements IExaminationActionService {
 		long startNs = System.nanoTime();
 		String currentUsername = SysUtil.getUser();
 		String tenantCode = SysUtil.getTenantCode();
-		answer.setOperator(currentUsername);
-		answer.setTenantCode(tenantCode);
-
-		ExaminationRecord record = new ExaminationRecord();
-		record.setCommonValue(currentUsername, tenantCode);
-		record.setId(answer.getExamRecordId());
-		// 提交时间
-		record.setEndTime(new Date());
-		record.setSubmitStatus(SubmitStatusEnum.SUBMITTED.getValue());
-		// 更新考试状态
-		boolean success = examRecordService.update(record) > 0;
-		this.submitAsync(record.getId(), currentUsername, tenantCode);
+		Long userId = SysUtil.getUserId();
+		if (answer == null || answer.getExamRecordId() == null || userId == null) {
+			return false;
+		}
+		Long recordId = answer.getExamRecordId();
+		if (CollectionUtils.isEmpty(answerService.findListByExamRecordId(recordId))) {
+			return false;
+		}
+		boolean success = examRecordService.claimSubmission(recordId, userId, tenantCode,
+				SubmitStatusEnum.CALCULATE);
+		if (success) {
+			scheduleSubmitAfterCommit(recordId, currentUsername, tenantCode);
+		}
 		long tookMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
 		log.debug("Async submit examination, username: {}, time consuming: {}ms", currentUsername, tookMs);
+		return success;
+	}
+
+	@Transactional
+	public boolean submitAsyncAnonymous(Answer answer) {
+		if (answer == null || answer.getExamRecordId() == null) {
+			return false;
+		}
+		String tenantCode = SysUtil.getTenantCode();
+		ExaminationRecord record = examRecordService.get(answer.getExamRecordId());
+		if (record == null || !tenantCode.equals(record.getTenantCode())) {
+			return false;
+		}
+		if (CollectionUtils.isEmpty(answerService.findListByExamRecordId(record.getId()))) {
+			return false;
+		}
+		boolean success = examRecordService.claimAnonymousSubmission(record.getId(), record.getExaminationId(),
+				tenantCode, SubmitStatusEnum.CALCULATE);
+		if (success) {
+			scheduleSubmitAfterCommit(record.getId(), SysUtil.getUser(), tenantCode);
+		}
 		return success;
 	}
 
 	@Override
 	@Transactional
 	public Boolean submitAll(List<AnswerDto> answers) {
-		if (CollectionUtils.isEmpty(answers)) {
+		return submitAllInternal(answers, null);
+	}
+
+	@Transactional
+	public Boolean submitAllAnonymous(Long examinationId, List<AnswerDto> answers) {
+		return submitAllInternal(answers, examinationId);
+	}
+
+	private Boolean submitAllInternal(List<AnswerDto> answers, Long anonymousExaminationId) {
+		if (CollectionUtils.isEmpty(answers) || answers.get(0) == null ||
+				answers.get(0).getExamRecordId() == null) {
 			return Boolean.FALSE;
 		}
 
 		String userCode = SysUtil.getUser();
 		String tenantCode = SysUtil.getTenantCode();
 		Long recordId = answers.get(0).getExamRecordId();
+		Set<Long> subjectIds = new HashSet<>();
+		for (AnswerDto answer : answers) {
+			if (answer == null || !recordId.equals(answer.getExamRecordId()) ||
+					answer.getSubjectId() == null || !subjectIds.add(answer.getSubjectId())) {
+				return Boolean.FALSE;
+			}
+		}
+		boolean claimed;
+		if (anonymousExaminationId != null) {
+			claimed = examRecordService.claimAnonymousSubmission(recordId, anonymousExaminationId, tenantCode,
+					SubmitStatusEnum.CALCULATE);
+		} else {
+			Long userId = SysUtil.getUserId();
+			claimed = userId != null && examRecordService.claimSubmission(recordId, userId, tenantCode,
+					SubmitStatusEnum.CALCULATE);
+		}
+		if (!claimed) {
+			return Boolean.FALSE;
+		}
 		Long[] ids = answers.stream().map(AnswerDto::getSubjectId).toArray(Long[]::new);
 		// 初次答题，只有一个题
 		List<Answer> dbAnswers = answerService.batchFindByRecordIdAndSubjectId(recordId, ids);
@@ -264,6 +322,7 @@ public class ExaminationActionService implements IExaminationActionService {
 			Answer dbAnswer = answerMap.get(answer.getSubjectId());
 			List<MaterialSubject> materialSubject = materialSubjectService.findListByMaterialId(answer.getSubjectId());
 			if (dbAnswer != null) {
+				newAnswer.setId(dbAnswer.getId());
 				newAnswer.setCommonValue(userCode, tenantCode);
 				newAnswer.setAnswer(answer.getAnswer());
 				// 是材料题，就做标记
@@ -273,6 +332,7 @@ public class ExaminationActionService implements IExaminationActionService {
 				}
 				updates.add(newAnswer);
 			} else {
+				newAnswer.setId(null);
 				newAnswer.setNewRecord(true);
 				newAnswer.setCommonValue(userCode, tenantCode);
 				newAnswer.setMarkStatus(AnswerConstant.TO_BE_MARKED);
@@ -293,7 +353,9 @@ public class ExaminationActionService implements IExaminationActionService {
 			int update = answerService.batchUpdate(updates);
 			log.info("Batch update success, recordId: {}, size: {}", recordId, update);
 		}
-		this.submit(recordId, userCode, tenantCode);
+		if (!this.submit(recordId, userCode, tenantCode)) {
+			throw new IllegalStateException("Cannot grade a submitted record without answers: " + recordId);
+		}
 		return Boolean.TRUE;
 	}
 
@@ -462,7 +524,15 @@ public class ExaminationActionService implements IExaminationActionService {
 	private void submitAsync(Long recordId, String userCode, String tenantCode) {
 		StopWatch watch = StopWatchUtil.start();
 		ListenableFuture<Boolean> future = executorHolder.getSubmitExecutor()
-				.submit(() -> submit(recordId, userCode, tenantCode));
+				.submit(() -> new TransactionTemplate(txManager).execute(status -> {
+					if (!examRecordService.claimGrading(recordId, tenantCode)) {
+						return Boolean.FALSE;
+					}
+					if (!submit(recordId, userCode, tenantCode)) {
+						throw new IllegalStateException("Cannot grade a submitted record without answers: " + recordId);
+					}
+					return Boolean.TRUE;
+				}));
 		Futures.addCallback(future, new FutureCallback<>() {
 			@Override
 			public void onSuccess(@Nullable Boolean result) {
@@ -475,6 +545,31 @@ public class ExaminationActionService implements IExaminationActionService {
 				log.error("Submit future failed, recordId: {}, user: {}", recordId, userCode, e);
 			}
 		}, executorHolder.getSubmitExecutor());
+	}
+
+	public void retryPendingCalculation(ExaminationRecord record) {
+		try {
+			submitAsync(record.getId(), record.getCreator(), record.getTenantCode());
+		} catch (RuntimeException e) {
+			log.error("Cannot requeue pending calculation, recordId: {}", record.getId(), e);
+		}
+	}
+
+	private void scheduleSubmitAfterCommit(Long recordId, String userCode, String tenantCode) {
+		if (!TransactionSynchronizationManager.isActualTransactionActive() ||
+				!TransactionSynchronizationManager.isSynchronizationActive()) {
+			throw new IllegalStateException("Submission requires an active transaction");
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				try {
+					submitAsync(recordId, userCode, tenantCode);
+				} catch (RuntimeException e) {
+					log.error("Cannot enqueue committed submission, recordId: {}", recordId, e);
+				}
+			}
+		});
 	}
 
 	private Map<Integer, List<Answer>> distinctAnswer(Long[] subjectIds, List<Answer> answers) {

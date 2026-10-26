@@ -19,7 +19,7 @@ package com.github.tangyi.api.exam.enums;
 public enum SubmitStatusEnum {
 
 	UNKNOWN("未知", -1), NOT_SUBMITTED("未提交", 0), SUBMITTED("已提交", 1), CALCULATE("正在统计", 2), CALCULATED(
-			"统计完成", 3);
+			"统计完成", 3), PROCESSING("评分处理中", 4);
 
 	private String name;
 

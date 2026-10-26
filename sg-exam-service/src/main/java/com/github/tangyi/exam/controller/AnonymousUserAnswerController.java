@@ -62,6 +62,6 @@ public class AnonymousUserAnswerController extends BaseController {
 	@PostMapping("anonymousUser/submit")
 	@Operation(summary = "提交答卷")
 	public R<Boolean> anonymousUserSubmit(@RequestBody Answer answer) {
-		return R.success(actionService.submitAsync(answer));
+		return R.success(actionService.submitAsyncAnonymous(answer));
 	}
 }

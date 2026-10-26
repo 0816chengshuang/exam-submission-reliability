@@ -1,120 +1,91 @@
-<h1 align="center">Welcome to sg-exam 👋</h1>
-<p>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.0.15-blue.svg?cacheSeconds=2592000" />
-  <a href="https://www.yuque.com/tangyi-5ldnl/rzv4xd/nl8d6g6mobdgylk7?singleDoc#" target="_blank">
-    <img alt="Documentation" src="https://img.shields.io/badge/documentation-yes-brightgreen.svg" />
-  </a>
-  <a href="#" target="_blank">
-    <img alt="License: Apache2.0" src="https://img.shields.io/badge/License-Apache2.0-yellow.svg" />
-  </a>
-</p>
+# 在线考试可信交卷与成绩一致性
 
-## 项目简介
+考生在交卷时可能重复点击、断网后重试，甚至两个请求同时到达。一次考试只能产生一份可信成绩：他人不能代交，答案与成绩要一起成功或一起失败，数据库确认提交后才能安排评分和更新排名。
 
-基于 **Spring Boot**、**Vue** 构建的高效教学管理平台，专为便捷与美学设计，无缝融合多租户体系与精细权限管理，涵盖在线考试、日常练习、互动学习等核心功能。
+本地启动后打开 [中文交卷演示页面](http://127.0.0.1:18080/sg-user-service/submission-demo)，按页面五步操作，或一键运行完整演示。页面使用合成账户和真实接口，显示每次请求的结果，并核对数据库成绩与 Redis 排名。
 
-- **多元化课程体验**：支持丰富媒体格式，无论是图文并茂的教材，还是生动直观的视频课程，满足不同学习需求。考试与练习模式灵活切换，兼备问卷调查功能，全面评估学习成效。
-- **创新题型设计**：囊括单选、多选、判断、简答及多媒体题型（视频、语音），内容兼容图文视频，激发学习兴趣，提升互动深度。
-- **轻量级部署，持续迭代**：本版本精简中间件依赖，简化部署流程，确保用户轻松上手与维护。我们承诺持续版本更新，紧跟教育技术前沿，保障平台活力。
+[![中文交卷工作台的真实浏览器操作演示](docs/demo.gif)](docs/DEMO.md)
 
-## 功能演示
+[阅读完整场景、设计与演示](docs/DEMO.md) · [本机运行基线](BASELINE.md) · [上游来源](UPSTREAM.md)
 
-### 公众号 & H5
+## 系统结构与改进范围
 
-| 平台 | 二维码 | 说明 |
-|-------|-------|------|
-| 公众号 | <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp.jpg" height="130"/> | 发布部署文档、源码解析相关的文章 |
+| 环节 | 作用 | 本仓库的改进 |
+| --- | --- | --- |
+| 交卷入口 | 接收考生答卷与答案 | 逐条校验归属、租户和题目，拒绝代交与伪造答案 ID |
+| MyBatis + 数据库 | 决定谁获得交卷权 | 带状态条件的更新、事务评分和失败回滚 |
+| 异步评分 | 处理单题交卷后的评分 | 提交后投递、任务抢占与过期待评分恢复 |
+| Redis 排名 | 提供成绩排行 | 数据库提交成功后发布，数据库成绩仍是事实来源 |
+| 演示与测试 | 重放可解释的故障场景 | 合成双账户五步演示、H2 与隔离 MySQL 测试 |
 
-## 功能概述
+这条主线把“用户重试或并发交卷”转化为可执行的边界条件：一个答卷至多成功交卷一次，拒绝他人代交，且最终成绩与排名可以核对。页面演示覆盖同步批量交卷；异步恢复由独立测试验证，验收范围在下文说明。
 
-<img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/business.png" width="600"/>
+## 解决的问题
 
-本项目综合 Web 前端、后台管理系统与 H5 客户端，旨在打造流畅的在线学习与考试环境。
+原有批量交卷直接按请求中的答卷编号写入答案并评分，缺少答卷归属与状态条件；异步评分在事务提交前就可能启动，Redis 排名也可能先于数据库提交。这会使重复请求、多用户误操作或评分失败后的结果难以解释。
 
-- **Web 前端亮点**：聚焦在线教育核心，用户可享受无缝的在线考试体验，深入参与课程学习与个性化练习，全面提升学习互动性。
-- **H5 客户端**：精简而不简单，同样专注于考试参与功能，确保用户随时随地，灵活安排学习与测评。
-- **后台管理系统**：集成了强大的教育运营管理工具，包括：
-    - **系统配置**：全面管理单位、用户、部门、角色、菜单及操作日志，支持代码自动生成，加速迭代效率。
-    - **考务精细化管理**：从课程创建至成绩评估，覆盖课程、考试、题库及成绩全链条管理，确保教学活动有序高效。
-- **课程特色**：多元内容结构，课程设计支持章节细化至知识点级别，搭配图文并茂与视频教学，满足多样化学习偏好。
-- **考试灵活性**
-    - **多样考试模式**：支持考试、练习、问卷等多种类型，及一次性完成或顺序作答、限时作答等模式，适应不同测评场景。
-    - **智能题库管理**：题目添加便捷灵活，支持手动创建、题库快速选取乃至智能随机组卷，提升出题效率与考试新鲜感。
-- **用户互动增强**：用户能收藏感兴趣的考试、题目与课程，自由挑选题库进行针对性练习，更多惊喜功能待您亲身体验，让学习之旅更加自主与高效。
+本仓库围绕**交卷一致性**增加了以下约束：
 
-## 系统架构
+1. 校验每道答案来自同一答卷，拒绝重复题目；已有答案的数据库 ID 由服务端确定，不信任客户端传来的 ID。
+2. 用一条带 `答卷 ID + 考生 ID + 租户 + 未提交状态` 条件的 SQL 抢占交卷权。数据库行锁保证并发请求只有一个成功；匿名问卷按答卷、考试和租户独立校验。
+3. 批量答案与评分位于同一事务，失败则连交卷状态一起回滚。异步评分只在提交事务成功后入队，评分任务自身使用独立事务。
+4. Redis 排名在数据库事务提交后更新，回滚不会发布未成立的成绩。
+5. 异步答卷保留“待评分”状态；进程中断或线程池投递失败后，定时任务只预约超过五分钟的记录。评分线程在独立事务内抢占记录并计算，失败回滚后可再次预约。
 
-<img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/framework.png" width="600"/>
+扫描 SQL 使用 `(submit_status, is_deleted, update_time, id)` 联合索引：前两列等值筛选，后两列对应过期范围与排序。全新演示库由初始化脚本创建索引；已有 MySQL 库需先执行 [一次性迁移](config-repo/mysql/migrations/20261025_submission_recovery_index.sql)。尚未做大数据量 `EXPLAIN` 对照或吞吐量压测。
 
-## 部署文档 & 操作手册 & 源码解析 & 视频教程
+```mermaid
+flowchart LR
+    A[考生提交答卷] --> B{校验答卷与归属}
+    B -->|拒绝| X[无数据库写入]
+    B -->|通过| C{条件更新抢占交卷权}
+    C -->|已提交或并发失败| X
+    C -->|成功| D[写答案与评分]
+    D -->|异常| R[事务回滚]
+    D -->|提交成功| E[异步路径投递评分 / 排名提交后发布]
+```
 
-- **获取方式**：关注公众号 “AI 程序员 Gary”，发送“文档”关键词获取。
+## 本机验证
 
-<img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp.jpg" height="130"/>
+在 Windows PowerShell、Java 17 环境中，进入仓库根目录：
 
-- [Roadmap](https://www.yuque.com/tangyi-5ldnl/paf15u/cwvtvfd0a07ozfk2?singleDoc#)
-- [开源使用用户登记](https://gitee.com/wells2333/sg-exam/issues/I63AI3)
+```powershell
+.\scripts\local.ps1 -Action Test
+.\scripts\local.ps1 -Action Build
+.\scripts\local.ps1 -Action Start
+.\scripts\check-local.ps1
+```
 
-## 功能截图
+启动后打开 [中文交卷演示](http://127.0.0.1:18080/sg-user-service/submission-demo)。页面输入合成账户 `preview` 和 `admin` 的样本密码（初始化样本为 `123456`），点击“运行完整演示”，也可逐步点击查看越权、重复提交及最终成绩。输入只保留在浏览器内存，页面不会把密码写入仓库。接口明细可在 [Swagger UI](http://127.0.0.1:18080/sg-user-service/swagger-ui/index.html) 查看。停止本脚本启动的本地服务：`.\scripts\local.ps1 -Action Stop`。
 
-<table>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/web_courses.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/web_course_detail.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/web_course_chapter.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/web_course_section.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_course_evaluate.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/web_1.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_course_evaluate.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_dashboard.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_exam_manage.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_subjects.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_subject_detail.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_courses.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_score_detail.png" height="200"/></td>
-        <td><img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/admin_menus.png" height="200"/></td>
-    </tr>
-    <tr>
-        <td>
-           <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp_1.png" height="200"/>
-           <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp_2.png" height="200"/>
-           <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp_3.png" height="200"/>
-           <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp_6.png" height="200"/>
-           <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wxapp_7.png" height="200"/>
-        </td>
-        <td> 
-           <img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/monitor_1.png" height="200"/>
-        </td>
-    </tr>
-</table>
+现场演示只需保持 18080 运行，另开 PowerShell 执行 `.\scripts\demo-api.ps1`。按提示输入上游**合成样本**账户 `preview` 和 `admin` 的演示密码（初始化样本为 `123456`）；脚本逐项核验越权拒绝、正常交卷、重复拒绝、成绩与排名。结束后窗口会等待按回车，结果同时保存在忽略目录 `.run/demo-result.json`，即使关窗也能查看；失败时该文件记录原因。密码隐藏输入，不写入结果文件或仓库。多次演示会创建新的合成答卷。
 
-## 交流
+截至 2026-10-25，选定的 **17 项测试通过**：条件更新、真实事务回滚、双线程争抢和过期任务预约等 6 项 Mapper 测试又在隔离的 MySQL 8.0 测试库上跑过；其余为 H2/单元测试。中文页面在真实浏览器中完成五步交卷并检查手机宽度；本机 OpenAPI、公开查询、未登录拦截和 Redis PING 也通过。另用合成账户在 MySQL + Redis 上走通同一组 HTTP 交卷动作；复现步骤与结果见 [演示与设计](docs/DEMO.md)。
 
-欢迎提交 PR、[issues](https://gitee.com/wells2333/sg-exam)一起完善项目。
+本机快速启动用 H2，不会自动变成 MySQL。MySQL 验收需要单独的隔离数据库，测试入口只接受本机 `127.0.0.1:13306` 上名为 `sg_exam_test_*` 的库：
 
-👤 **作者**
+```powershell
+$env:SG_TEST_MYSQL_URL = 'jdbc:mysql://127.0.0.1:13306/sg_exam_test_demo?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
+$env:SG_TEST_MYSQL_USER = '<your-local-user>'
+$env:SG_TEST_MYSQL_PASSWORD = '<your-local-password>'
+.\scripts\local.ps1 -Action Test
+Remove-Item Env:SG_TEST_MYSQL_URL,Env:SG_TEST_MYSQL_USER,Env:SG_TEST_MYSQL_PASSWORD
+```
 
-- Gitee: [@wells2333](https://gitee.com/wells2333)
-- Github: [@wells2333](https://github.com/wells2333)
+这组测试会在该**专用测试库**中重建自己的 `exam_examination_record` 表，不要指向已有业务库。上面的 `demo-api.ps1` 默认使用 H2 本机预览；若要对另行启动的 MySQL 演示应用重放同一流程，可传 `-BaseUrl 'http://127.0.0.1:18081/sg-user-service'`。两种运行配置的验证证据分别说明，不把 H2 当 MySQL。
 
-### 请作者喝咖啡
+## 代码入口
 
-如果您觉得有帮助，请点右上角 ⭐️ "Star" 或者**微信扫一扫**支持一下，谢谢！
+| 关注点 | 位置 |
+| --- | --- |
+| HTTP 交卷入口 | `sg-exam-service/src/main/java/com/github/tangyi/exam/controller/AnswerController.java` |
+| 交卷校验与评分 | `sg-exam-service/src/main/java/com/github/tangyi/exam/service/exam/ExaminationActionService.java` |
+| 条件更新 SQL | `sg-exam-service/src/main/resources/mappers/exam/ExamRecodeMapper.xml` |
+| 排名提交后更新 | `sg-exam-service/src/main/java/com/github/tangyi/exam/service/RankInfoService.java` |
+| 过期异步任务恢复 | `sg-exam-service/src/main/java/com/github/tangyi/exam/service/exam/SubmissionRecoveryService.java` |
+| 中文演示页面 | `sg-user-service/src/main/resources/portfolio/submission-demo.html` |
+| 合成场景测试 | `sg-user-service/src/test/java/com/github/tangyi/baseline/` |
 
-<img src="https://gitee.com/wells2333/sg-exam/raw/master/docs/images/wechat.png" width="130"/>
+异步恢复依赖本地定时扫描，不是持久化队列；进程崩溃后会有最多一个扫描周期加五分钟的等待，且没有做双实例部署验收。Redis 发布失败尚无自动重建；匿名问卷未实现一次性身份令牌。详见演示页的边界说明。
 
-## 许可证
-
-本项目采用 [Apache License 2.0](https://gitee.com/wells2333/sg-exam/blob/master/LICENSE) 授权。
+本项目基于 [sg-exam](https://github.com/wells2333/sg-exam) 改进，保留上游 Git 历史及 Apache-2.0 许可证。考试平台、Spring Boot/Vue 模块与原有题库等属于上游；上述交卷一致性改动和验证为本仓库增量。[上游原 README](docs/UPSTREAM_README.md)。

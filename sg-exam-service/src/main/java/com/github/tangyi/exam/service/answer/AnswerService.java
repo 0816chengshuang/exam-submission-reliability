@@ -163,8 +163,11 @@ public class AnswerService extends CrudService<AnswerMapper, Answer> implements 
 		if (record != null) {
 			record.setCommonValue();
 			record.setSubmitStatus(SubmitStatusEnum.CALCULATED.getValue());
-			this.rankInfoService.updateRank(record);
-			return examRecordService.update(record);
+			int updated = examRecordService.update(record);
+			if (updated > 0) {
+				this.rankInfoService.updateRankAfterCommit(record);
+			}
+			return updated;
 		}
 		return -1;
 	}

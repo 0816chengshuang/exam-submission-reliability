@@ -51,11 +51,10 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    if (System.getenv('SG_TEST_MYSQL_URL')) {
+        outputs.upToDateWhen { false }
+    }
     testLogging {
         events("passed", "skipped", "failed")
     }
-}
-
-tasks.withType(JavaCompile) {
-    options.encoding = "UTF-8"
 }

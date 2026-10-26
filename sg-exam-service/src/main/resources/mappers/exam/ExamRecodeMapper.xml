@@ -19,6 +19,40 @@
         <result column="tenant_code" property="tenantCode"/>
     </resultMap>
 
+    <update id="claimSubmission">
+        UPDATE exam_examination_record
+        SET submit_status = #{submitStatus}, update_time = CURRENT_TIMESTAMP
+        WHERE id = #{recordId} AND user_id = #{userId} AND tenant_code = #{tenantCode}
+          AND submit_status = 0 AND is_deleted = 0
+    </update>
+
+    <update id="claimAnonymousSubmission">
+        UPDATE exam_examination_record
+        SET submit_status = #{submitStatus}, update_time = CURRENT_TIMESTAMP
+        WHERE id = #{recordId} AND examination_id = #{examinationId} AND tenant_code = #{tenantCode}
+          AND submit_status = 0 AND is_deleted = 0
+    </update>
+
+    <update id="claimGrading">
+        UPDATE exam_examination_record
+        SET submit_status = #{submitStatus}, update_time = CURRENT_TIMESTAMP
+        WHERE id = #{recordId} AND tenant_code = #{tenantCode}
+          AND submit_status = 2 AND is_deleted = 0
+    </update>
+
+    <select id="findStaleCalculations" resultMap="examRecordResultMap">
+        SELECT * FROM exam_examination_record
+        WHERE submit_status = 2 AND is_deleted = 0 AND update_time &lt; #{cutoff}
+        ORDER BY update_time ASC, id ASC LIMIT 100
+    </select>
+
+    <update id="reserveStaleCalculation">
+        UPDATE exam_examination_record
+        SET update_time = CURRENT_TIMESTAMP
+        WHERE id = #{recordId} AND tenant_code = #{tenantCode}
+          AND submit_status = 2 AND is_deleted = 0 AND update_time &lt; #{cutoff}
+    </update>
+
     <select id="findPage" resultMap="examRecordResultMap">
         SELECT * FROM exam_examination_record a WHERE a.is_deleted = 0
         <if test="params != null">

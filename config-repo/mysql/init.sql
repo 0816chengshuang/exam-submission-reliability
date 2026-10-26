@@ -385,7 +385,8 @@ CREATE TABLE `exam_examination_record` (
   PRIMARY KEY (`id`) USING BTREE,
   KEY `idx_user_id` (`user_id`),
   KEY `idx_exam_id` (`examination_id`),
-  KEY `idx_type` (`type`)
+  KEY `idx_type` (`type`),
+  KEY `idx_submit_recovery` (`submit_status`, `is_deleted`, `update_time`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='考试记录表';
 
 -- ----------------------------

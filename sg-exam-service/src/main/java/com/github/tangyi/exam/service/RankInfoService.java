@@ -27,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
 import java.util.List;
@@ -89,6 +91,20 @@ public class RankInfoService {
 					record.getScore());
 		} catch (Exception e) {
 			log.error("Failed to update rank, examinationId: {}", record.getExaminationId(), e);
+		}
+	}
+
+	public void updateRankAfterCommit(ExaminationRecord record) {
+		if (TransactionSynchronizationManager.isActualTransactionActive() &&
+				TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					updateRank(record);
+				}
+			});
+		} else {
+			updateRank(record);
 		}
 	}
 }

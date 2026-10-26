@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>交卷可靠性演示</title>
+  <style>
+    :root { color-scheme: light; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; font-size: 15px; color: #202b2b; background: #f7f9f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    .topbar { background: #173e37; color: #fff; min-height: 60px; display: flex; align-items: center; }
+    .topbar-inner { width: min(1280px, calc(100% - 48px)); margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { font-weight: 700; font-size: 17px; }
+    .env { font-size: 12px; color: #c7d8d3; white-space: nowrap; }
+    main { width: min(1280px, calc(100% - 48px)); margin: 32px auto 64px; }
+    h1 { margin: 0; font-size: 28px; line-height: 1.3; }
+    h2 { font-size: 17px; margin: 0 0 16px; }
+    .lead { color: #60706d; margin: 10px 0 28px; line-height: 1.65; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(340px, .82fr); gap: 32px; }
+    section { border-top: 1px solid #cdd9d4; padding-top: 19px; margin-bottom: 30px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+    input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #bccdc5; border-radius: 4px; background: #fff; color: #202b2b; outline-color: #17815e; }
+    .actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .primary, .secondary { min-height: 38px; border-radius: 4px; padding: 0 15px; font-weight: 700; }
+    .primary { background: #157452; border: 1px solid #157452; color: #fff; }
+    .secondary { background: #fff; border: 1px solid #9db6aa; color: #164638; }
+    .state { font-size: 13px; color: #5e6b67; }
+    .state.success { color: #0b7049; }
+    .state.error { color: #b33a32; }
+    .flow { border-top: 1px solid #e2e9e5; }
+    .step { display: grid; grid-template-columns: 30px minmax(0, 1fr) 102px; gap: 12px; min-height: 75px; align-items: center; border-bottom: 1px solid #e2e9e5; }
+    .number { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid #a8bdb3; border-radius: 50%; color: #466156; font-size: 12px; font-weight: 700; }
+    .step.done .number { background: #157452; border-color: #157452; color: #fff; }
+    .step-title { font-size: 14px; font-weight: 700; }
+    .step-detail { font-size: 12px; color: #697772; margin-top: 3px; line-height: 1.4; }
+    .step button { width: 100%; }
+    .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #e2e9e5; border-bottom: 1px solid #e2e9e5; }
+    .metric { min-height: 86px; padding: 14px 10px; }
+    .metric + .metric { border-left: 1px solid #e2e9e5; }
+    .metric span { display: block; color: #687873; font-size: 12px; }
+    .metric strong { display: block; margin-top: 7px; font-size: 19px; }
+    .timeline { min-height: 270px; max-height: 370px; overflow: auto; margin: 0; padding: 0; list-style: none; border-top: 1px solid #e2e9e5; }
+    .timeline li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 9px; border-bottom: 1px solid #e2e9e5; padding: 12px 0; font-size: 13px; line-height: 1.5; }
+    .timeline time { color: #84928c; font-variant-numeric: tabular-nums; }
+    .timeline .ok { color: #0b7049; }
+    .timeline .rejected { color: #b35027; }
+    .timeline .error { color: #b33a32; }
+    .foot { border-top: 1px solid #d7e0dc; color: #788782; font-size: 12px; padding-top: 18px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; gap: 0; } }
+    @media (max-width: 560px) { main, .topbar-inner { width: calc(100% - 28px); } main { margin-top: 22px; } h1 { font-size: 23px; } .form-row { grid-template-columns: 1fr; } .step { grid-template-columns: 26px minmax(0, 1fr); padding: 12px 0; } .step button { grid-column: 2; width: auto; justify-self: start; } }
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="topbar-inner"><div class="brand">考试交卷工作台</div><div class="env">本地合成数据 · 演示环境</div></div></header>
+  <main>
+    <h1>一次交卷，一份可信成绩</h1>
+    <p class="lead">同一份答卷依次经历他人代交、本人提交和重复请求。右侧同步核对数据库成绩与排行榜。</p>
+    <div class="layout">
+      <div>
+        <section>
+          <h2>演示账户</h2>
+          <div class="form-row">
+            <label>考生 preview<input id="studentPassword" type="password" autocomplete="off" placeholder="考生密码"></label>
+            <label>另一账户 admin<input id="otherPassword" type="password" autocomplete="off" placeholder="另一账户密码"></label>
+          </div>
+          <div class="actions"><button id="connect" class="primary">连接账户</button><span id="connection" class="state" role="status">尚未连接</span></div>
+        </section>
+        <section>
+          <div class="section-head"><h2>交卷流程</h2><button id="runAll" class="secondary" disabled>运行完整演示</button></div>
+          <div class="flow">
+            <div class="step" id="step1"><span class="number">1</span><div><div class="step-title">考生开始考试</div><div class="step-detail">创建一份归属明确的答卷</div></div><button class="secondary" id="start" disabled>开始考试</button></div>
+            <div class="step" id="step2"><span class="number">2</span><div><div class="step-title">另一账户尝试代交</div><div class="step-detail">不属于他的答卷，应当拒绝</div></div><button class="secondary" id="foreign" disabled>尝试代交</button></div>
+            <div class="step" id="step3"><span class="number">3</span><div><div class="step-title">考生本人交卷</div><div class="step-detail">答案与成绩共同写入</div></div><button class="secondary" id="owner" disabled>本人交卷</button></div>
+            <div class="step" id="step4"><span class="number">4</span><div><div class="step-title">重复点击交卷</div><div class="step-detail">已完成的答卷不能再次评分</div></div><button class="secondary" id="retry" disabled>重复交卷</button></div>
+            <div class="step" id="step5"><span class="number">5</span><div><div class="step-title">核对最终结果</div><div class="step-detail">数据库成绩与 Redis 排名应一致</div></div><button class="secondary" id="verify" disabled>核对成绩</button></div>
+          </div>
+        </section>
+      </div>
+      <div>
+        <section><h2>本次答卷</h2><div class="summary"><div class="metric"><span>答卷编号</span><strong id="recordId">-</strong></div><div class="metric"><span>数据库成绩</span><strong id="score">-</strong></div><div class="metric"><span>排行榜成绩</span><strong id="rank">-</strong></div></div></section>
+        <section><h2>执行记录</h2><ol class="timeline" id="timeline" aria-live="polite"><li><time>--:--</time><span>等待连接演示账户。</span></li></ol></section>
+      </div>
+    </div>
+    <div class="foot">合成样本用于复现交卷边界。基于 sg-exam 开源项目改进；原项目许可为 Apache-2.0。</div>
+  </main>
+  <script>
+    const root = location.pathname.replace(/\/submission-demo\/?$/, "");
+    const tenant = "gitee";
+    const ids = ["start", "foreign", "owner", "retry", "verify"];
+    const state = { student: null, other: null, recordId: null, subjectId: null, phase: 0, busy: false };
+    const $ = id => document.getElementById(id);
+
+    function status(message, kind = "") {
+      $("connection").textContent = message;
+      $("connection").className = `state ${kind}`;
+    }
+    function event(message, kind = "") {
+      if ($("timeline").firstElementChild?.querySelector("time")?.textContent === "--:--") $("timeline").replaceChildren();
+      const item = document.createElement("li");
+      const time = document.createElement("time");
+      const body = document.createElement("span");
+      time.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      body.textContent = message;
+      body.className = kind;
+      item.append(time, body);
+      $("timeline").prepend(item);
+    }
+    function render() {
+      $("connect").disabled = state.busy;
+      $("runAll").disabled = state.busy || !state.student || !(state.phase === 1 || state.phase === 6);
+      ids.forEach((id, index) => {
+        $(id).disabled = state.busy || !state.student || state.phase !== index + 1;
+        $(`step${index + 1}`).classList.toggle("done", state.phase > index + 1);
+      });
+      if (state.phase === 6) $("start").disabled = state.busy;
+    }
+    async function request(path, options = {}) {
+      const response = await fetch(root + path, { ...options, headers: { "Tenant-Code": tenant, ...(options.headers || {}) } });
+      const data = await response.json();
+      if (!response.ok || Number(data.code) !== 0) throw new Error(data.message || `请求失败 (${response.status})`);
+      return data.result;
+    }
+    async function login(name, password) {
+      const body = new URLSearchParams({ username: name, password });
+      const result = await request("/login", { method: "POST", body, headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      if (!result?.token) throw new Error(`${name} 登录未返回令牌`);
+      return result.token;
+    }
+    function auth(token) { return { Authorization: token, "Content-Type": "application/json" }; }
+    function answer() { return [{ id: 999999, examRecordId: state.recordId, subjectId: state.subjectId, type: 0, answer: "C" }]; }
+    async function submit(token) {
+      return request("/v1/answer/submitAll", { method: "POST", headers: auth(token), body: JSON.stringify(answer()) });
+    }
+    async function step(index) {
+      if (index === 1) {
+        const result = await request("/v1/examRecord/start", { method: "POST", headers: auth(state.student), body: JSON.stringify({ examinationId: 1, userId: 1 }) });
+        if (!result?.examRecord?.id || Number(result.examRecord.userId) !== 2) throw new Error("答卷归属校验未通过");
+        state.recordId = result.examRecord.id;
+        state.subjectId = result.subjectDto.id;
+        $("recordId").textContent = state.recordId;
+        $("score").textContent = "-";
+        $("rank").textContent = "-";
+        event(`新答卷 ${state.recordId} 归属考生 preview；请求中的伪造用户编号被忽略。`, "ok");
+      } else if (index === 2) {
+        if (await submit(state.other) !== false) throw new Error("代交未被拒绝");
+        event("另一账户 admin 尝试代交，被拒绝；答卷仍可由本人提交。", "rejected");
+      } else if (index === 3) {
+        if (await submit(state.student) !== true) throw new Error("本人交卷未成功");
+        event("考生本人交卷成功；请求伪造的答案编号未被采用。", "ok");
+      } else if (index === 4) {
+        if (await submit(state.student) !== false) throw new Error("重复交卷未被拒绝");
+        event("同一考生再次交卷被拒绝，没有产生第二份成绩。", "rejected");
+      } else if (index === 5) {
+        const record = await request(`/v1/examRecord/${state.recordId}`, { headers: auth(state.student) });
+        const rank = await request("/v1/answer/rankInfo?examinationId=1", { headers: auth(state.student) });
+        const entry = rank.find(item => Number(item.userId) === 2);
+        if (Number(record.submitStatus) !== 3 || Number(record.score) !== 5 || Number(entry?.score) !== 5) throw new Error("成绩或排名与预期不一致");
+        $("score").textContent = `${record.score} 分`;
+        $("rank").textContent = `${entry.score} 分`;
+        event("数据库成绩 5 分，Redis 排名 5 分；两处结果一致。", "ok");
+      }
+      state.phase = index + 1;
+      render();
+    }
+    async function run(action) {
+      if (state.busy) return;
+      state.busy = true;
+      render();
+      try { await action(); status("本地服务已连接", "success"); }
+      catch (error) {
+        const message = error instanceof TypeError ? "无法连接本地服务，请检查服务是否仍在运行" : error.message;
+        status(message, "error");
+        event(message, "error");
+      }
+      finally { state.busy = false; render(); }
+    }
+    $("connect").addEventListener("click", () => run(async () => {
+      const studentPassword = $("studentPassword").value;
+      const otherPassword = $("otherPassword").value;
+      state.student = null;
+      state.other = null;
+      state.recordId = null;
+      state.subjectId = null;
+      state.phase = 0;
+      $("recordId").textContent = "-";
+      $("score").textContent = "-";
+      $("rank").textContent = "-";
+      $("studentPassword").value = "";
+      $("otherPassword").value = "";
+      if (!studentPassword || !otherPassword) throw new Error("请输入两个演示账户的密码");
+      state.student = await login("preview", studentPassword);
+      state.other = await login("admin", otherPassword);
+      state.phase = 1;
+      event("考生与另一账户已分别登录。", "ok");
+    }));
+    ids.forEach((id, index) => $(id).addEventListener("click", () => run(() => step(index + 1))));
+    $("runAll").addEventListener("click", () => run(async () => {
+      for (let index = 1; index <= 5; index++) await step(index);
+    }));
+    render();
+  </script>
+</body>
+</html>

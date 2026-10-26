@@ -66,9 +66,41 @@ public class ExamRecordService extends CrudService<ExamRecordMapper, Examination
 	private final IUserService userService;
 	private final IDeptService deptService;
 
+	@Transactional
+	@CacheEvict(value = ExamCacheName.EXAM_RECORD, key = "#recordId")
+	public boolean claimSubmission(Long recordId, Long userId, String tenantCode, SubmitStatusEnum status) {
+		return this.dao.claimSubmission(recordId, userId, tenantCode, status.getValue()) == 1;
+	}
+
+	@Transactional
+	@CacheEvict(value = ExamCacheName.EXAM_RECORD, key = "#recordId")
+	public boolean claimAnonymousSubmission(Long recordId, Long examinationId, String tenantCode,
+			SubmitStatusEnum status) {
+		return this.dao.claimAnonymousSubmission(recordId, examinationId, tenantCode, status.getValue()) == 1;
+	}
+
+	@Transactional
+	@CacheEvict(value = ExamCacheName.EXAM_RECORD, key = "#recordId")
+	public boolean claimGrading(Long recordId, String tenantCode) {
+		return this.dao.claimGrading(recordId, tenantCode, SubmitStatusEnum.PROCESSING.getValue()) == 1;
+	}
+
+	public List<ExaminationRecord> findStaleCalculations(Date cutoff) {
+		return this.dao.findStaleCalculations(cutoff);
+	}
+
+	@Transactional
+	public boolean reserveStaleCalculation(Long recordId, String tenantCode, Date cutoff) {
+		return this.dao.reserveStaleCalculation(recordId, tenantCode, cutoff) == 1;
+	}
+
 	@Override
 	@Cacheable(value = ExamCacheName.EXAM_RECORD, key = "#id")
 	public ExaminationRecord get(Long id) {
+		return super.get(id);
+	}
+
+	public ExaminationRecord getUncached(Long id) {
 		return super.get(id);
 	}
 
